@@ -23,7 +23,6 @@ bl_info = {
 
 import bpy
 import traceback
-from random import random
 
 menu_classes = []
 category_draw_funcs = []
@@ -58,7 +57,6 @@ def append_menu(menu_name, parent_menu=None, icon="NONE", tree_types=None):
     else:
         parent_hash = str(name_hash(parent_menu.bl_idname))
         menu_classname = f'NODE_MT_CUSTOM_MENUS_{menu_name.replace(" ", "_")}_{parent_hash}'
-        #menu_classname = f'NODE_MT_CUSTOM_MENUS_{parent_menu.bl_label}_{menu_name.replace(" ", "_")}'
 
     tree_defaults = ("ShaderNodeTree", 'GeometryNodeTree', 'CompositorNodeTree', 'TextureNodeTree')
     if tree_types is None:
@@ -68,8 +66,6 @@ def append_menu(menu_name, parent_menu=None, icon="NONE", tree_types=None):
             if item not in tree_defaults:
                 print(f'WARNING: Invalid poll function - "{item}" is not a valid nodetree type. Ignoring entry for {menu_classname}')
         tree_types = tuple(item for item in tree_types if item in tree_defaults)
-                
-
 
     if hasattr(bpy.types, menu_classname):
         print(f"WARNING:'{menu_name}' already exists within {parent_menu}. Ignoring duplicate entry.")
@@ -89,16 +85,14 @@ def append_menu(menu_name, parent_menu=None, icon="NONE", tree_types=None):
     )
     
     bpy.utils.register_class(menu)
-
     name, label = menu.bl_idname, menu.bl_label
     def draw_menu(self, context):
         self.layout.menu(name, text=label, icon=icon)
+    parent_menu.append(draw_menu)
+
     if parent_menu == bpy.types.NODE_MT_add:
         category_draw_funcs.append(draw_menu)
-
-    parent_menu.append(draw_menu)
     menu_classes.append(menu)
-
     return menu
 
 
@@ -124,8 +118,8 @@ def main():
 
     menu = append_menu("Menu")
     for _ in range(50):
-        append_menu("Submenusssssssssssss 1", parent_menu=menu, tree_types=("ShaderNodeTree", "GeometryNodeTree"))
-        menu = append_menu("Submenu 2", parent_menu=menu)
+        append_menu("Submenus 1", parent_menu=menu, tree_types=("ShaderNodeTree", "GeometryNodeTree"))
+        menu = append_menu("Submenu 2", parent_menu=menu, tree_types=("ShaderNodeTree", "GeometryNodeTree"))
     
     '''
     menu1 = append_menu("Menu 1", icon="CON_TRANSFORM")
@@ -135,7 +129,6 @@ def main():
     submenu1 = append_menu("Submenu 3", parent_menu=menu1,icon="RADIOBUT_ON")
     append_operator("node.duplicate_move", parent_menu=submenu1, icon="SNAP_VERTEX")
     append_operator("node.duplicate_move", parent_menu=submenu1, icon="SORT_DESC")
-    append_operator("nd_align.right", parent_menu=submenu1, icon="SORT_DESC")
     subsubmenu1 = append_menu("Submenu 1", parent_menu=submenu1,icon="RADIOBUT_OFF")
     append_operator("node.duplicate_move", label="Duplicate", parent_menu=subsubmenu1, icon="RADIOBUT_ON")
     append_operator("node.duplicate_move", label="Duplicate", parent_menu=submenu1, icon="RADIOBUT_OFF")
@@ -161,7 +154,7 @@ def register():
     
     try:
         main()
-    except Exception as error_message:
+    except Exception:
         print(f'\nWARNING: {traceback.format_exc()}\n')
         unregister()
         menu_classes.clear()
