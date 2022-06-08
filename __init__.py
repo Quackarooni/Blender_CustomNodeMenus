@@ -22,21 +22,53 @@ bl_info = {
 }
 
 import bpy
+import traceback
+from random import random
 
-node_categories = []
+menu_classes = []
 category_draw_funcs = []
-classname_dict = {}
 
-def append_menu(menu_name, parent_menu=None, icon="NONE"):
-    global node_categories
+class NODE_MT_CUSTOM_MENU_BASECLASS(bpy.types.Menu):
+    bl_label = "Menu"
+    bl_idname = "NODE_MT_CUSTOM_MENU_BASECLASS"
+
+    tree_types = ("ShaderNodeTree", 'GeometryNodeTree', 'CompositorNodeTree', 'TextureNodeTree')
+
+    @classmethod
+    def poll(cls, context):
+        return context.space_data.tree_type in cls.tree_types
+
+    def draw(self, context):
+        pass
+
+def name_hash(menu_name):
+    hashed_name = str(hash(menu_name))
+    if hashed_name.startswith("-"):
+        hashed_name = hashed_name.replace("-","1")
+    hashed_name = hex(int(hashed_name))
+    return hashed_name
+
+def append_menu(menu_name, parent_menu=None, icon="NONE", tree_types=None):
+    global menu_classes
     global category_draw_funcs
-    global classname_dict
     
     if parent_menu is None:
         parent_menu = bpy.types.NODE_MT_add
         menu_classname = f'NODE_MT_CUSTOM_MENUS_{menu_name.replace(" ", "_")}'
     else:
-        menu_classname = f'{parent_menu.bl_idname}_{menu_name.replace(" ", "_")}'
+        parent_hash = str(name_hash(parent_menu.bl_idname))
+        menu_classname = f'NODE_MT_CUSTOM_MENUS_{menu_name.replace(" ", "_")}_{parent_hash}'
+        #menu_classname = f'NODE_MT_CUSTOM_MENUS_{parent_menu.bl_label}_{menu_name.replace(" ", "_")}'
+
+    tree_defaults = ("ShaderNodeTree", 'GeometryNodeTree', 'CompositorNodeTree', 'TextureNodeTree')
+    if tree_types is None:
+        tree_types = tree_defaults
+    else:
+        for item in tree_types:
+            if item not in tree_defaults:
+                print(f'WARNING: Invalid poll function - "{item}" is not a valid nodetree type. Ignoring entry for {menu_classname}')
+        tree_types = tuple(item for item in tree_types if item in tree_defaults)
+                
 
 
     if hasattr(bpy.types, menu_classname):
@@ -46,12 +78,13 @@ def append_menu(menu_name, parent_menu=None, icon="NONE"):
     def draw(self, context):
         pass
 
-    menu = type(menu_classname,(bpy.types.Menu,),
+    menu = type(menu_classname,(NODE_MT_CUSTOM_MENU_BASECLASS,),
         {
             "bl_idname": menu_classname,
             "bl_space_type": "NODE_EDITOR",
             "bl_label": menu_name,
             "draw": draw,
+            "tree_types": tree_types,
         },
     )
     
@@ -62,26 +95,12 @@ def append_menu(menu_name, parent_menu=None, icon="NONE"):
         self.layout.menu(name, text=label, icon=icon)
     if parent_menu == bpy.types.NODE_MT_add:
         category_draw_funcs.append(draw_menu)
-    
+
     parent_menu.append(draw_menu)
-    node_categories.append(menu)
+    menu_classes.append(menu)
 
     return menu
 
-def build_tree(tree, parent=None):
-    for item in tree:
-        if type(item) == list:
-            menu_parent = append_menu(item.pop(0), parent)
-            for subitem in item:
-                if type(subitem) == list:
-                    print("sublist", subitem, menu_parent)
-                    build_tree(subitem, menu_parent)
-                else:
-                    print("subitem", subitem, menu_parent)
-                    append_menu(subitem, menu_parent)
-        else:
-            print("item", item, parent)
-            append_menu(item, parent)
 
 def append_operator(operator_idname, parent_menu=None, label="Operator", icon='NONE'):
     if parent_menu is None:
@@ -94,20 +113,21 @@ def append_operator(operator_idname, parent_menu=None, label="Operator", icon='N
     if parent_menu == bpy.types.NODE_MT_add:
         category_draw_funcs.append(draw)
 
-
-
-def register():
-    global node_categories
+def main():
+    global menu_classes
     global category_draw_funcs
-    global classname_dict
+    if not hasattr(bpy.types, "NODE_MT_CUSTOM_MENU_BASECLASS"):
+        bpy.utils.register_class(NODE_MT_CUSTOM_MENU_BASECLASS)
     
-    node_categories.clear()
+    menu_classes.clear()
     category_draw_funcs.clear()
-    classname_dict.clear()
 
-    tree = [["Menu 1", [["Hey", "Heyyyy", "Hi-ho"], "GRuh"], "Ahoy"], ["Menu 2", "menu 1", "menu 2"], "Menu 3"]
-    #build_tree(tree)
-
+    menu = append_menu("Menu")
+    for _ in range(50):
+        append_menu("Submenusssssssssssss 1", parent_menu=menu, tree_types=("ShaderNodeTree", "GeometryNodeTree"))
+        menu = append_menu("Submenu 2", parent_menu=menu)
+    
+    '''
     menu1 = append_menu("Menu 1", icon="CON_TRANSFORM")
     append_menu("Submenu 1", parent_menu=menu1, icon="SORT_DESC")
     append_menu("Submenu 2", parent_menu=menu1,icon="RADIOBUT_OFF")
@@ -128,21 +148,36 @@ def register():
     append_menu("Submenu 1", parent_menu=submenu1)
     append_menu("Submenu 2", parent_menu=submenu1)
     append_menu("Submenu 3", parent_menu=menu2, icon="RADIOBUT_ON")
-    
-
-    for cls in node_categories:
+    '''
+    #FOR DEBUG ONLY - IF I LEFT THIS IN I'M BEING A DUMDUM
+    for cls in menu_classes:
         print(cls)
     for func in category_draw_funcs:
         print(func)
 
+def register():
+    global menu_classes
+    global category_draw_funcs
+    
+    try:
+        main()
+    except Exception as error_message:
+        print(f'\nWARNING: {traceback.format_exc()}\n')
+        unregister()
+        menu_classes.clear()
+        category_draw_funcs.clear()
+
 def unregister():
-    global node_categories
+    global menu_classes
+    if hasattr(bpy.types, "NODE_MT_CUSTOM_MENU_BASECLASS"):
+        bpy.utils.unregister_class(NODE_MT_CUSTOM_MENU_BASECLASS)
 
     for draw_func in category_draw_funcs:
         bpy.types.NODE_MT_add.remove(draw_func)
 
-    for item in node_categories:
-        bpy.utils.unregister_class(item)
+    for cls in menu_classes:
+        bpy.utils.unregister_class(cls)
+    
 
 
 
