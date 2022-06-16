@@ -105,7 +105,7 @@ def append_operator(operator_idname, parent_menu=root_menu, label="Operator", ic
 def main():
     if not hasattr(bpy.types, "NODE_MT_CUSTOM_MENU_BASECLASS"):
         bpy.utils.register_class(NODE_MT_CUSTOM_MENU_BASECLASS)
-    
+        
     menu_classes.clear()
     category_draw_funcs.clear()
 
@@ -129,8 +129,6 @@ def register():
     except Exception:
         print(f'\nWARNING: {traceback.format_exc()}\n')
         unregister()
-        menu_classes.clear()
-        category_draw_funcs.clear()
 
 def unregister():
     if hasattr(bpy.types, "NODE_MT_CUSTOM_MENU_BASECLASS"):
